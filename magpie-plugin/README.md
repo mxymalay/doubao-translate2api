@@ -1,119 +1,94 @@
-# Doubao Translation for Magpie
+# 豆包文本翻译：Magpie 本地加固版
 
-直接使用本人或已获授权的豆包 Cookie 翻译文本，无须部署 doubao-translate2api 服务、Docker 或额外 API Key。
-这是非官方实现，与豆包、Magpie 无隶属或合作关系。服务条款、账号风险及 MIT 免责声明同主项目。
+这是非官方的文本翻译插件，不是通用聊天模型。插件直接接入现有 Magpie，不启动额外服务、不改聊天客户端或路由组。
 
-## 项目入口
+源码基于 [grimseraph/doubao-translate2api](https://github.com/grimseraph/doubao-translate2api/tree/main/src/magpie) 的提交 `55a23f6`，原 MIT 许可证完整保留；Zod 的许可证随包提供。此版本在本机维护，不依赖已经删除的作者发布仓库，也不会从该仓库自动更新。
 
-| 入口 | 用途 |
-| --- | --- |
-| [Magpie 直连插件](https://github.com/mu-zi-lee/opencode-doubao-translate) | 当前插件的发布仓库，可由本机或远端 Magpie 直接安装 |
-| [API 服务源码与部署文档](https://github.com/mu-zi-lee/doubao-translate2api) | 在 NAS 或服务器部署，向多个翻译客户端提供兼容 API |
-| [Docker Hub 镜像](https://hub.docker.com/r/muzileee/doubao-translate2api) | 拉取 `muzileee/doubao-translate2api` 部署 API 服务 |
+请仅使用本人或已获授权的账号。网页接口可能变化，账号及服务条款风险由使用者自行评估。插件不绕过登录、验证码或服务限流。
 
-服务版和插件版共用翻译核心，可按使用场景选择。只在 Magpie 中翻译时安装本插件即可；需要管理页、Cookie 池、API Key 或为多个客户端提供服务时，使用 API 服务或 Docker 镜像。
+## 安装与登录
 
-## 直接安装（远端也适用）
-
-在 Magpie「插件 → 发现」底部的安装框填写：
-
-```text
-github:mu-zi-lee/opencode-doubao-translate
-```
-
-点击安装，再进入「已安装」或「供应商」，选择 **Doubao Translation** 的 **Import Doubao Cookie** 登录。
-也可以在运行 Magpie 的机器上使用 CLI：
+在 Magpie「插件 → 添加插件」中填写这个已构建插件目录的绝对路径，或者运行：
 
 ```sh
-magpie plugin add github:mu-zi-lee/opencode-doubao-translate
+magpie plugin add /绝对路径/doubao-translate-local
 magpie plugin login doubao-translate
 ```
 
-GitHub 发布仓库包含已构建的插件和运行时依赖，无须 Node.js 开发环境、Docker 或额外构建步骤。
-固定版本时填写 `github:mu-zi-lee/opencode-doubao-translate#v0.1.0`。
-更新时在 Magpie 中更新插件，或运行 `magpie plugin update`。
+本机安装时已经完成第一步，运行包位于 `/Users/xy/.config/magpie/plugins/local-doubao-translate`。源码位于 `/Users/xy/Projects/doubao-translate-local`，可分发包输出到该项目的 `outputs/`。不要把运行插件指向 Documents 下的临时工作目录：本机后台 Magpie 服务加载该目录曾报找不到入口，改用应用自己的插件目录后已验证加载成功。
 
-## 从本地主项目构建
+请在 Magpie「供应商 → 豆包文本翻译（本地加固版）→ Import Doubao Cookie」导入本人 Cookie Header 或 Cookie JSON。必须包含 `sessionid`、`sid_tt`、`uid_tt`，导入时会校验登录状态。未登录时 Magpie 不会把这三个翻译模型加入可调用的网关目录。
 
-在主项目目录运行：
+不要把 Cookie 发给聊天助手，不要放到源码、`.env` 或命令行参数里。账号信息只通过 Magpie 自己的登录配置保存；权限应为 `0600`。插件本身不写 Cookie 文件，不打印 Cookie、原文、译文或上游错误正文。
 
-```sh
-npm ci
-npm run build:plugin
-magpie plugin add ./magpie-plugin
-magpie plugin login doubao-translate
+Cookie 失效时重新导入；不会自动抓取浏览器凭据或绕过登录。没有账号时，安装和模型发现不代表翻译已可用。
+
+## 使用
+
+现有 Magpie 网关地址仍是 `http://127.0.0.1:3425/v1`。在翻译工具中显式选择以下模型，不要加入聊天自动路由或故障切换组：
+
+- `doubao-translate/doubao-ai`：豆包 AI 翻译。
+- `doubao-translate/volcengine-translate`：火山翻译。
+- `doubao-translate/microsoft-translator`：微软翻译。
+
+三个引擎都通过豆包网页翻译接口调用，不是对应厂商的官方 API。
+
+默认译为简体中文。可以用 `target_lang`、`X-Doubao-Target-Lang` 或明确的系统翻译指令指定目标语言：
+
+```json
+{
+  "model": "doubao-translate/doubao-ai",
+  "target_lang": "zh",
+  "messages": [{"role": "user", "content": "The meeting starts at nine.\n\n%%\n\nPlease bring your notes."}],
+  "stream": false
+}
 ```
 
-也可以在 Magpie 的「插件 → 添加插件」填写 `magpie-plugin` 文件夹的绝对路径。
-文件夹必须先构建；插件包已包含运行时依赖，无安装脚本。
+只翻译最后一条用户文本；不支持图片、工具、对话记忆、推理或结构化输出。长文本按最多 50 段、每批最多 10,000 个 UTF-16 单元分批，长段再切分，并按原顺序还原换行。独立一行的 `%%` 及周围换行作为段落分隔符保留，不发给翻译接口。全部批次成功后才返回完整结果，失败时不把半截译文冒充成功。
 
-登录时粘贴完整 Cookie Header 或浏览器导出的 Cookie JSON，可填写账号名称。
-必须包含 `sessionid`、`sid_tt` 和 `uid_tt`，登录时会请求豆包检测有效性。
-每次登录可添加一个账号，调度与故障切换交给 Magpie。
-登录信息保存在 Magpie 配置目录的 `plugin-auth.json`（权限 600），包括规范化 Cookie 和账号名称；请勿分享此文件。
-插件使用自定义导入流程，检测成功后保存 Cookie，不需要额外填写 API Key 或打开登录浏览器。
-Cookie 过期需要重新导入，不提供自动登录或续期。
+`stream: true` 在完整翻译完成后返回兼容 SSE，不是逐 token 实时翻译。模型显示的 32,000 token 预算只是网关预算，不是上游额度承诺；token usage 为 0，不能据此推算真实用量。
 
-## 模型与翻译
+## 资源限制与错误
 
-| 模型 | 引擎 |
-| --- | --- |
-| `doubao-translate/doubao-ai` | 豆包 AI 翻译 |
-| `doubao-translate/volcengine-translate` | 火山翻译 |
-| `doubao-translate/microsoft-translator` | 微软翻译 |
-
-三者都通过豆包网页接口调用。供应商使用 Chat Completions，Magpie 负责转换客户端协议。
-默认目标语言为简体中文。请求的 `target_lang`、`X-Doubao-Target-Lang` 或明确翻译指令优先于插件默认值。
-只翻译最后一条 user 文本，不支持对话记忆、图片、工具、推理或结构化输出。
-在翻译客户端显式选择上述模型，避免将其用于聊天、编程或自动路由的通用任务。
-模型的 32000 token 输入/输出预算是保守的网关配置，不代表上游额度或精确的字符限制。
-
-长文本自动分段并按原顺序还原换行；全部成功后才返回结果。
-流式请求在完整翻译成功后输出 SSE，不是逐 token 实时翻译。
-token usage 为 0，未提供可验证的上游套餐额度，不上报虚构用量。
-插件不保存原文、译文或独立统计文件。
-
-## 选项
-
-在 Magpie 的插件配置 `options` 中设置，或使用 CLI：
-
-```sh
-magpie plugin options opencode-doubao-translate '{"targetLang":"en","maxConcurrency":4}'
-```
-
-| 选项 | 默认值 | 含义 |
+| 参数 | 默认值 | 可配置上限 |
 | --- | --- | --- |
-| `targetLang` | `"zh"` | 默认目标语言 |
-| `scene` | `2` | 豆包翻译场景，1–6 |
-| `maxConcurrency` | `4` | 插件上游总并发及 Magpie 每账号建议上限，1–1000 |
-| `requestTimeoutMs` | `45000` | 单次上游请求超时 |
-| `totalTimeoutMs` | `180000` | 包含排队、分段与重试的总超时 |
-| `authTimeoutMs` | `10000` | 登录检测超时 |
-| `maxRetries` | `0` | 单批临时故障重试，0–10；默认交给 Magpie 故障切换 |
-| `queueMax` | `100` | 插件内部最大排队数 |
-| `queueTimeoutMs` | `30000` | 排队超时 |
+| `maxConcurrency` | 2 | 4 |
+| `queueMax` | 8 | 32 |
+| `queueTimeoutMs` | 8,000 ms | 30,000 ms |
+| `requestTimeoutMs` | 30,000 ms | 60,000 ms |
+| `totalTimeoutMs` | 120,000 ms | 180,000 ms |
+| `authTimeoutMs` | 10,000 ms | 15,000 ms |
+| `maxRetries` | 0 | 2 |
 
-修改后关闭再开启插件，使供应商选项重新加载。
-插件不读取独立服务的 `.env`、Cookie 文件或账号池。
-豆包登录失效返回 `X-Magpie-Sign-In: expired`；HTTP 429 保留为 429，其他失败使用兼容 API 错误格式。
-网络或服务临时故障不会标记登录过期。代理使用 Magpie 的账号/供应商代理配置。
+总翻译超时包含排队、分批和重试；从 Magpie 读取账号凭据另外受 `authTimeoutMs` 约束。上游响应头、流读取和 Cookie 校验的等待都独立响应取消。清理流采用尽力取消，不能因为取消钩子卡住而占住翻译槽位。
 
-## 检测与打包
+超时后才到达的响应也会尝试取消。若宿主完全忽略取消且一直不返回，插件能结束自身等待，但无法强行终止宿主内部的网络工作；并发上限约束的是插件持有的翻译槽位。
 
-```sh
-magpie provider test doubao-translate doubao-ai
-```
+- 登录缺失或失效：401；真实失效才标记 `X-Magpie-Sign-In: expired`。
+- 限流或队列满：429；排队超时：503。
+- 请求、总翻译或凭据读取超时：504。
+- 空译文、缺少段落或上游错误：明确错误，不返回空的 200 成功。
 
-该命令验证连通性，翻译验收还应明确发送目标语言和原文。
-开发检查使用主项目的 `npm run typecheck`、`npm test` 和 `npm run build`。
-本地 mock 和 Bun 加载检查不代表真实 Magpie、Cookie 或豆包翻译验收。
-官方 Magpie Bun 插件宿主的模拟上游检查已覆盖加载、Cookie 登录保存和流式返回；真实豆包与远端客户端仍需验收。
-插件打包了 Zod，其 MIT 许可证在 `THIRD_PARTY_LICENSES.txt`。
+网络故障不会被标为登录过期；默认不重试，不使用其他聊天模型兜底。
 
-构建后可以创建独立 npm 包，无须运行安装脚本：
+## 本地维护
+
+在源码目录使用 Node.js 24 或更新版本：
 
 ```sh
-npm pack ./magpie-plugin
+npm ci --ignore-scripts
+npm test
+npm run typecheck
+npm run build
+npm run build:plugin:local
 ```
 
-当前通过 GitHub 发布仓库安装，未发布到 npm 或插件推荐市场。
+项目源码位于 `/Users/xy/Projects/doubao-translate-local`，私有维护仓库是 [mxymalay/doubao-translate-local](https://github.com/mxymalay/doubao-translate-local)。最后一步输出到项目内的 `outputs/doubao-translate-local`，不依赖原来的 Codex 任务目录。需要更新本机运行包时，在源码目录另外执行：
+
+```sh
+node scripts/build-plugin.mjs /Users/xy/.config/magpie/plugins/local-doubao-translate
+```
+
+Magpie 不监听本地源码文件修改；重建后仅关闭再开启这个插件，让宿主加载新代码，勿执行会更新所有插件的命令。
+
+回归测试使用测试账号占位值和模拟上游，不是真实豆包账号验收。真实验收需导入有效 Cookie 后，发送一条明确目标语言的短文及一篇多段长文，检查译文和分隔符；真实未验收时不要宣称账号可用。

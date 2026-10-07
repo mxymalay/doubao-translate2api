@@ -1,4 +1,49 @@
-# doubao-translate2api
+# doubao-translate-local
+
+本仓库是我们独立维护的私有版本，基于 `grimseraph/doubao-translate2api` 的源码副本，基线提交为 `55a23f6cd116bb48e3178c763d122cd4b0b6cd82`。原项目作者、许可证和免责声明保留；不是重新从零实现，也不是官方豆包 API。
+
+本机项目目录：`/Users/xy/Projects/doubao-translate-local`。当前实际使用的是 [Magpie 本地插件](magpie-plugin/README.md)，运行包安装在 `/Users/xy/.config/magpie/plugins/local-doubao-translate`。源码与安装包分离，搬动源码不会切断正在使用的 Magpie。
+
+## 相对保留源码的实际改动
+
+“加固”指下面这些有回归测试的改动，不表示接口已经得到官方支持或绝不会失败。
+
+| 位置 | 原来的行为或缺口 | 本地改动 |
+| --- | --- | --- |
+| `src/core/delay.ts`、`src/doubao/transport.ts` | 等待依赖宿主正确响应 AbortSignal；响应头或流读取可能超时后仍挂起 | 独立竞速取消，响应头、流读取、Cookie 校验都能结束自身等待 |
+| 同上 | 超时后迟到的 Response 没有被清理；等待 `reader.cancel()` 本身也可能挂起 | 尝试取消迟到的响应；流清理不再阻塞翻译槽位；取消后不启动尚未开始的操作 |
+| `src/magpie/plugin.ts` | 读取宿主登录信息没有单独等待上限 | 凭据读取默认 10 秒超时，返回 `auth_timeout`，不把网络超时误判成登录过期 |
+| `src/magpie/plugin.ts` | Magpie 请求未识别独立一行的 `%%`，分隔符会进入翻译文本 | 自动使用原有的段落分隔处理，保留 `%%` 及换行，不发送分隔符给上游 |
+| `src/magpie/plugin.ts`、插件包元数据 | 原默认并发 4、队列 100；并发与重试可被设置得很大 | 默认并发 2、队列 8、排队 8 秒、单次 30 秒、总翻译 120 秒、默认不重试；限制可配置上限 |
+| 包名、构建脚本与文档 | 插件发布和说明依赖原作者发布仓库；构建输出绑在临时任务位置 | 本地独立包名；完整打包 MIT 与 Zod 许可证；输出留在项目内，安装到 Magpie 自己的目录 |
+
+原版已经具备长文分批、结果顺序还原、认证校验、错误脱敏和空结果检查；这些不是我们新写的功能。未修改豆包请求地址或协议，不增加网关，也不修改原有聊天路由。
+
+新增测试位于 `test/integration/magpie-local.test.ts`、`test/unit/delay.test.ts` 和 `test/integration/packaging.test.ts`。它们覆盖宿主忽略取消、取消钩子卡住、迟到响应清理、凭据读取卡住、默认并发/队列限制、段落分隔及搬动项目后的独立打包。
+
+取消是尽力而为：宿主完全忽略取消且一直不返回时，插件能结束等待，但不能强制终止宿主内部的网络操作。非官方接口仍可能变更或限流。
+
+## 维护与验证
+
+```sh
+npm ci --ignore-scripts
+npm test
+npm run typecheck
+npm run build
+npm run build:plugin:local
+npm run check:workers:lite
+npm run build:workers
+```
+
+`build:plugin:local` 写入本项目的 `outputs/doubao-translate-local`。Cookie、Key、账号文件、`.env`、`.dev.vars`、运行数据及依赖目录均不上传。实际账号只保存在 Magpie 自己的登录配置中。
+
+CF 完整版的源码在 `src/workers`，CF Lite 的源码与独立部署目录分别在 `src/workers-lite` 和 `deploy/workers-lite`。删除旧 Lite fork 前，已经核对其 10 个文件与此项目的 `deploy/workers-lite` 基线逐字节相同。共用 transport 的取消修复适用于完整版；独立 Lite Worker 保留原实现，并没有宣称套用了所有 Magpie 加固策略。
+
+本次没有部署到 Cloudflare。私有仓库不能当作公开的一键部署地址；请按 Cloudflare 文档使用授权仓库连接或本机 Wrangler，Cookie 必须通过 Secrets 配置。
+
+## 保留的原项目说明
+
+下方保留原服务端与部署资料。上游 Docker Hub 镜像不是本仓库的本地加固构建；需要服务端版本时请使用本仓库 Dockerfile 自行构建。
 
 想法来自 [linux.do](https://linux.do/) 中帖子 https://linux.do/t/topic/2988583 
 
@@ -20,17 +65,17 @@
 
 | 入口 | 用途 |
 | --- | --- |
-| [API 服务源码与部署文档](https://github.com/mu-zi-lee/doubao-translate2api) | 在 NAS 或服务器部署，向多个翻译客户端提供兼容 API |
-| [Docker Hub 镜像](https://hub.docker.com/r/muzileee/doubao-translate2api) | 拉取 `muzileee/doubao-translate2api` 部署 API 服务 |
-| [Magpie 直连插件](https://github.com/mu-zi-lee/opencode-doubao-translate) | 在 Magpie 中导入豆包 Cookie，直接翻译，无须部署 API 服务或 Docker |
+| [本仓库 API 服务源码](src/server.ts) | 在 NAS 或服务器部署，向多个翻译客户端提供兼容 API |
+| [上游 Docker Hub 镜像](https://hub.docker.com/r/muzileee/doubao-translate2api) | 原作者构建，不包含本仓库的本地修改 |
+| [Magpie 本地插件](magpie-plugin/README.md) | 在 Magpie 中导入豆包 Cookie，直接翻译，无须部署 API 服务或 Docker |
 | [Cloudflare Workers 实验版](docs/cloudflare-workers.md) | 在自己的 Cloudflare 账号部署单 Cookie 翻译接口，无需服务器 |
 
 服务版和插件版共用翻译核心，可按使用场景选择。服务版提供管理页、Cookie 池和 API Key；插件版由 Magpie 管理账号与故障切换。
 
-只在 Magpie 中使用时，在「插件 → 发现」底部安装框填写以下内容，安装后选择 **Import Doubao Cookie**：
+只在 Magpie 中使用时，先克隆本私有仓库，运行 `npm ci --ignore-scripts` 和 `npm run build:plugin:local`，再在「插件 → 添加」安装框填写构建目录的绝对路径。安装后选择 **Import Doubao Cookie**：
 
 ```text
-github:mu-zi-lee/opencode-doubao-translate
+/Users/xy/.config/magpie/plugins/local-doubao-translate
 ```
 
 ![深色管理页面：翻译统计与运行概览](assets/admin-overview.png)
@@ -48,15 +93,15 @@ github:mu-zi-lee/opencode-doubao-translate
 
 Workers 版本共用翻译核心，提供三种协议和翻译引擎。通过 Cloudflare Secrets 配置 `DOUBAO_COOKIE` 与 `API_KEY`，适合个人接入沉浸式翻译；没有管理后台和多账号池。
 
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/mu-zi-lee/doubao-translate2api)
+本仓库为私有仓库，请使用本机 Wrangler 或 Cloudflare 已获授权的仓库连接部署，不使用原作者的公开一键部署按钮。
 
 **Lite 单文件版部署：**
 
-[![Deploy Lite to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/mu-zi-lee/doubao-translate2api/tree/main/deploy/workers-lite)
+Lite 独立部署目录：[deploy/workers-lite](deploy/workers-lite)。
 
-Lite 按钮使用独立部署目录，只包含 Lite 运行脚本与部署文件。新仓库根目录保持默认，构建命令为 `npm run build`，部署命令为 `npm run deploy`；填写 `API_KEY` 和 `DOUBAO_COOKIE` 后即可进行翻译测试。客户端需关闭流式输出。详见 [Lite 部署说明](deploy/workers-lite/README.md)。
+Lite 使用独立部署目录，只包含 Lite 运行脚本与部署文件。连接此私有仓库时根目录设为 `deploy/workers-lite`，构建命令为 `npm run build`，部署命令为 `npm run deploy`；填写 `API_KEY` 和 `DOUBAO_COOKIE` 后再进行翻译测试。客户端需关闭流式输出。详见 [Lite 部署说明](deploy/workers-lite/README.md)。
 
-实验版已包含本地 Workers 运行时测试，真实 Cloudflare 到豆包请求和扩展联调仍需验收。按钮需要默认分支包含 Workers 实现；尚未同步源码时，可按[新手部署指南](docs/cloudflare-workers.md)使用本地命令部署。
+实验版已包含本地 Workers 运行时测试，真实 Cloudflare 到豆包请求和扩展联调仍需验收。可按[部署指南](docs/cloudflare-workers.md)使用本地命令部署。
 
 部署页面的构建命令使用 `npm run build:workers`，部署命令使用 `npm run deploy:workers`，项目根目录保持仓库根目录。默认支持沉浸式纯文本 `%%` 分隔格式，暂不支持 YAML 和富文本模板。完整配置、Cookie 获取、接口检查和排错步骤见指南。
 

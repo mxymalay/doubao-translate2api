@@ -12,6 +12,7 @@
     "predev": "npm run build:ui",
     "build:ui": "node scripts/build-ui.mjs",
     "build:plugin": "node scripts/build-plugin.mjs",
+    "build:plugin:local": "node scripts/build-plugin.mjs outputs/doubao-translate-local",
     "build": "tsc -p tsconfig.build.json && npm run build:ui && npm run build:plugin",
     "typecheck": "tsc --noEmit",
     "pretest": "npm run build:ui && npm run build:plugin",

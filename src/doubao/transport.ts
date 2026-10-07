@@ -5,6 +5,7 @@ import { ServiceError } from "../core/errors.js";
 import type { DoubaoEngine, DoubaoScene } from "../core/models.js";
 import type { DoubaoLang } from "./languages.js";
 import { SSEParser } from "./sse-parser.js";
+import { withAbort } from "../core/delay.js";
 
 export type Fetch = typeof fetch;
 export type Warn = (code: string, fields?: Record<string, number>) => void;
@@ -51,21 +52,24 @@ export class DoubaoTransport {
     if (!selected) throw new ServiceError("cookie_missing", 502, "No Cookie provider is configured.");
     return selected();
   }
-  private async request(path: string, signal: AbortSignal, init: RequestInit, timeout: number, suppliedCookie?: CookieValue) {
-    const { cookie, complete } = suppliedCookie ?? await this.cookie();
-    if (!complete) throw new ServiceError("cookie_invalid", 502, "Required login cookies are missing.");
+  private async request(path: string, signal: AbortSignal, init: RequestInit, timeout: number, suppliedCookie?: CookieValue,
+    provider?: CookieProvider) {
     const combined = AbortSignal.any([signal, AbortSignal.timeout(timeout)]);
-    const headers = new Headers(init.headers);
-    headers.set("Cookie", cookie);
-    if (this.config.DOUBAO_USER_AGENT) headers.set("User-Agent", this.config.DOUBAO_USER_AGENT);
     try {
-      const response = await this.fetcher.call(globalThis, ORIGIN + path, { ...init, headers, signal: combined, redirect: "manual" });
+      const { cookie, complete } = suppliedCookie ?? await withAbort(() => this.cookie(provider), combined);
+      if (!complete) throw new ServiceError("cookie_invalid", 502, "Required login cookies are missing.");
+      const headers = new Headers(init.headers);
+      headers.set("Cookie", cookie);
+      if (this.config.DOUBAO_USER_AGENT) headers.set("User-Agent", this.config.DOUBAO_USER_AGENT);
+      const response = await withAbort(() => this.fetcher.call(globalThis, ORIGIN + path,
+        { ...init, headers, signal: combined, redirect: "manual" }), combined,
+        late => { void late.body?.cancel().catch(() => {}); });
       if (response.status >= 300 && response.status < 400) {
-        await response.body?.cancel();
+        void response.body?.cancel().catch(() => {});
         throw new ServiceError("upstream_network_error", 502, "Upstream redirects are not allowed.", true);
       }
       if (!response.ok) {
-        await response.body?.cancel();
+        void response.body?.cancel().catch(() => {});
         const authError = response.status === 401 || response.status === 403;
         throw new ServiceError(authError ? "upstream_auth_error" : "upstream_http_error", 502,
           "Upstream HTTP request failed.", response.status >= 500 || response.status === 429, null, undefined, response.status);
@@ -83,7 +87,7 @@ export class DoubaoTransport {
     const { response, combined } = await this.request("/samantha/plugin/stream_article_translate", signal, {
       method: "POST", headers: { "Content-Type": "application/json", Accept: "*/*" },
       body: JSON.stringify(buildRequestBody(req)),
-    }, this.config.DOUBAO_REQUEST_TIMEOUT_MS, provider ? await provider() : undefined);
+    }, this.config.DOUBAO_REQUEST_TIMEOUT_MS, undefined, provider);
     const reader = response.body?.getReader();
     if (!reader) throw new ServiceError("upstream_stream_error", 502, "Upstream response body is missing.", true);
     const results = new Map<number, string>();
@@ -117,7 +121,7 @@ export class DoubaoTransport {
     let pendingLength = 0;
     try {
       for (;;) {
-        const chunk = await reader.read();
+        const chunk = await withAbort(() => reader.read(), combined);
         if (chunk.done) break;
         bytes += chunk.value.byteLength;
         if (bytes > (this.config.DOUBAO_MAX_RESPONSE_BYTES ?? MAX_BODY))
@@ -148,17 +152,19 @@ export class DoubaoTransport {
       if (error instanceof ServiceError) throw error;
       throw this.transportError(error, signal, combined);
     } finally {
-      await reader.cancel().catch(() => {});
+      // Cancellation is best effort; a broken cancel hook must not hold a slot.
+      void reader.cancel().catch(() => {});
       reader.releaseLock();
     }
   }
   async authStatus(signal: AbortSignal, provider?: CookieProvider) {
     let loaded = false, complete = false;
+    const authSignal = AbortSignal.any([signal, AbortSignal.timeout(this.config.DOUBAO_AUTH_TIMEOUT_MS)]);
     try {
-      const stored = await this.cookie(provider);
+      const stored = await withAbort(() => this.cookie(provider), authSignal);
       loaded = true; complete = stored.complete;
       if (!complete) return { authenticated: false, cookie_loaded: true, required_login_cookies_present: false, reason: "cookie_invalid" };
-      const { response, combined } = await this.request("/samantha/plugin/user_settings/get?frontend_source=1", signal,
+      const { response, combined } = await this.request("/samantha/plugin/user_settings/get?frontend_source=1", authSignal,
         { method: "GET" }, this.config.DOUBAO_AUTH_TIMEOUT_MS, stored);
       let value: Record<string, unknown>;
       try {
@@ -168,7 +174,7 @@ export class DoubaoTransport {
         let length = 0;
         try {
           for (;;) {
-            const chunk = await reader.read();
+            const chunk = await withAbort(() => reader.read(), combined);
             if (chunk.done) break;
             length += chunk.value.length;
             if (length > (this.config.DOUBAO_MAX_RESPONSE_BYTES ?? MAX_BODY))
@@ -176,7 +182,7 @@ export class DoubaoTransport {
             chunks.push(chunk.value);
           }
           value = parseJSON(new TextDecoder().decode(concatBytes(chunks)));
-        } finally { await reader.cancel().catch(() => {}); reader.releaseLock(); }
+        } finally { void reader.cancel().catch(() => {}); reader.releaseLock(); }
       } catch (error) { throw this.transportError(error, signal, combined); }
       return {
         authenticated: value.code === 0, cookie_loaded: true, required_login_cookies_present: true,
@@ -185,8 +191,9 @@ export class DoubaoTransport {
       };
     } catch (error) {
       if (signal.aborted) throw signal.reason;
+      const failure = this.transportError(error, signal, authSignal);
       return { authenticated: false, cookie_loaded: loaded, required_login_cookies_present: complete,
-        reason: error instanceof ServiceError ? error.code : "upstream_network_error" };
+        reason: failure instanceof ServiceError ? failure.code : "upstream_network_error" };
     }
   }
 }

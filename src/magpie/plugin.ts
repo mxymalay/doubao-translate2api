@@ -8,6 +8,7 @@ import { Translator } from "../core/translator.js";
 import type { Protocol } from "../core/translation-request.js";
 import { DoubaoClient } from "../doubao/client.js";
 import { normalizeLanguage } from "../doubao/languages.js";
+import { withAbort } from "../core/delay.js";
 import { adaptRequest } from "../protocols/adapter.js";
 import { formatJSON, formatSSE } from "../protocols/format.js";
 
@@ -20,13 +21,13 @@ const optionsSchema = z.object({
     try { normalizeLanguage(value); return true; } catch { return false; }
   }, "Unsupported target language.").transform(normalizeLanguage),
   scene: positive.max(6).default(2),
-  maxConcurrency: positive.max(1000).default(4),
-  requestTimeoutMs: positive.default(45000),
-  totalTimeoutMs: positive.default(180000),
-  authTimeoutMs: positive.default(10000),
-  maxRetries: z.number().int().min(0).max(10).default(0),
-  queueMax: z.number().int().min(0).default(100),
-  queueTimeoutMs: positive.default(30000),
+  maxConcurrency: positive.max(4).default(2),
+  requestTimeoutMs: positive.max(60000).default(30000),
+  totalTimeoutMs: positive.max(180000).default(120000),
+  authTimeoutMs: positive.max(15000).default(10000),
+  maxRetries: z.number().int().min(0).max(2).default(0),
+  queueMax: z.number().int().min(0).max(32).default(8),
+  queueTimeoutMs: positive.max(30000).default(8000),
 }).strict();
 
 interface Auth {
@@ -116,7 +117,7 @@ export const DoubaoTranslatePlugin = async (_input: unknown, rawOptions?: unknow
     config: async (cfg: OpenCodeConfig) => {
       cfg.provider ??= {};
       cfg.provider[PROVIDER] ??= {
-        name: "Doubao Translation",
+        name: "豆包文本翻译（本地加固版）",
         npm: "@ai-sdk/openai-compatible",
         api: BASE,
         models: defaultModels,
@@ -187,7 +188,17 @@ export const DoubaoTranslatePlugin = async (_input: unknown, rawOptions?: unknow
               catch { throw invalid("Invalid request JSON."); }
               const adapted = adaptRequest(protocol, body, request.headers.get("x-doubao-target-lang") ?? undefined,
                 options.scene, randomUUID(), options.targetLang);
-              const cookie = cookieFor(await getAuth());
+              if (/^[ \t]*%%[ \t]*$/m.test(adapted.canonical.rawText))
+                adapted.canonical.sourceFormat = "immersive-translate";
+              const authSignal = AbortSignal.any([request.signal, AbortSignal.timeout(options.authTimeoutMs)]);
+              let auth: Auth | undefined;
+              try { auth = await withAbort(getAuth, authSignal); }
+              catch (error) {
+                if (request.signal.aborted) throw error;
+                if (authSignal.aborted) throw new ServiceError("auth_timeout", 504, "Loading Doubao sign-in timed out. Try again later.");
+                throw error;
+              }
+              const cookie = cookieFor(auth);
               const result = await translator.translate(adapted.canonical, request.signal, async () => cookie);
               if (adapted.canonical.stream) return new Response(formatSSE(protocol, result, adapted), {
                 headers: { "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-cache" },
