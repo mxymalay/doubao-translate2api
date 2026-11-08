@@ -2,26 +2,28 @@
 
 这是非官方的文本翻译插件，不是通用聊天模型。插件直接接入现有 Magpie，不启动额外服务、不改聊天客户端或路由组。
 
-源码基于 [grimseraph/doubao-translate2api](https://github.com/grimseraph/doubao-translate2api/tree/main/src/magpie) 的提交 `55a23f6`，原 MIT 许可证完整保留；Zod 的许可证随包提供。此版本在本机维护，不依赖已经删除的作者发布仓库，也不会从该仓库自动更新。
+源码基于 [grimseraph/doubao-translate2api](https://github.com/grimseraph/doubao-translate2api/tree/main/src/magpie) 的提交 `55a23f6`，原 MIT 许可证完整保留；Zod 的许可证随包提供。此版本在 [mxymalay/doubao-translate2api](https://github.com/mxymalay/doubao-translate2api) 维护，不依赖已经删除的作者发布仓库。
 
 请仅使用本人或已获授权的账号。网页接口可能变化，账号及服务条款风险由使用者自行评估。插件不绕过登录、验证码或服务限流。
 
 ## 安装与登录
 
-在 Magpie「插件 → 添加插件」中填写这个已构建插件目录的绝对路径，或者运行：
+在 Magpie「插件 → 添加插件」中填写 `github:mxymalay/doubao-translate2api#magpie-plugin`，或者运行：
 
 ```sh
-magpie plugin add /绝对路径/doubao-translate-local
+magpie plugin add github:mxymalay/doubao-translate2api#magpie-plugin
 magpie plugin login doubao-translate
 ```
 
-本机安装时已经完成第一步，运行包位于 `/Users/xy/.config/magpie/plugins/local-doubao-translate`。源码位于 `/Users/xy/Projects/doubao-translate-local`，可分发包输出到该项目的 `outputs/`。不要把运行插件指向 Documents 下的临时工作目录：本机后台 Magpie 服务加载该目录曾报找不到入口，改用应用自己的插件目录后已验证加载成功。
+`magpie-plugin` 分支只包含构建好的插件包，由源码 `main` 分支的 `npm run publish:plugin` 生成。
 
-请在 Magpie「供应商 → 豆包文本翻译（本地加固版）→ Import Doubao Cookie」导入本人 Cookie Header 或 Cookie JSON。必须包含 `sessionid`、`sid_tt`、`uid_tt`，导入时会校验登录状态。未登录时 Magpie 不会把这三个翻译模型加入可调用的网关目录。
+推荐在 Magpie「供应商 → 豆包文本翻译（本地加固版）→ Sign in with browser (auto)」登录：插件会用独立的浏览器配置（macOS 上为 `~/Library/Application Support/doubao-translate-local/login-profile`，不碰日常 Chrome 配置）打开豆包网页，你在窗口里自己登录后，插件通过仅监听 127.0.0.1 的调试端口读取 `www.doubao.com` 的 Cookie，校验登录状态通过后自动关闭窗口并保存。等待上限 5 分钟。支持 Chrome、Edge、Brave、Chromium，可用环境变量 `DOUBAO_LOGIN_BROWSER` 指定浏览器路径。该独立配置会保留豆包登录，Cookie 失效后再次点该登录方式通常无需重新输入账号。
+
+也可以用「Import Doubao Cookie」手动导入本人 Cookie Header 或 Cookie JSON，必须包含 `sessionid`、`sid_tt`、`uid_tt`，导入时同样会校验登录状态。未登录时 Magpie 不会把这三个翻译模型加入可调用的网关目录。
 
 不要把 Cookie 发给聊天助手，不要放到源码、`.env` 或命令行参数里。账号信息只通过 Magpie 自己的登录配置保存；权限应为 `0600`。插件本身不写 Cookie 文件，不打印 Cookie、原文、译文或上游错误正文。
 
-Cookie 失效时重新导入；不会自动抓取浏览器凭据或绕过登录。没有账号时，安装和模型发现不代表翻译已可用。
+Cookie 失效时重新登录或导入；插件只读取你在它打开的独立窗口里亲自登录的豆包 Cookie，不读取日常浏览器的凭据，也不绕过登录或验证码。没有账号时，安装和模型发现不代表翻译已可用。
 
 ## 使用
 
@@ -83,12 +85,13 @@ npm run build
 npm run build:plugin:local
 ```
 
-项目源码位于 `/Users/xy/Projects/doubao-translate-local`，私有维护仓库是 [mxymalay/doubao-translate-local](https://github.com/mxymalay/doubao-translate-local)。最后一步输出到项目内的 `outputs/doubao-translate-local`，不依赖原来的 Codex 任务目录。需要更新本机运行包时，在源码目录另外执行：
+最后一步输出到项目内的 `outputs/doubao-translate-local`。发布新版插件时，在 `main` 上提交后执行：
 
 ```sh
-node scripts/build-plugin.mjs /Users/xy/.config/magpie/plugins/local-doubao-translate
+npm run publish:plugin
+magpie plugin update
 ```
 
-Magpie 不监听本地源码文件修改；重建后仅关闭再开启这个插件，让宿主加载新代码，勿执行会更新所有插件的命令。
+`publish:plugin` 运行测试、构建插件，并把结果作为新提交推送到 `magpie-plugin` 分支；`magpie plugin update` 让 Magpie 拉取最新版本。
 
 回归测试使用测试账号占位值和模拟上游，不是真实豆包账号验收。真实验收需导入有效 Cookie 后，发送一条明确目标语言的短文及一篇多段长文，检查译文和分隔符；真实未验收时不要宣称账号可用。

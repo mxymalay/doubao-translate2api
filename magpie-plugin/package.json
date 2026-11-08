@@ -11,7 +11,7 @@
   "files": ["dist/index.mjs", "README.md", "LICENSE", "THIRD_PARTY_LICENSES.txt"],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/mxymalay/doubao-translate-local.git"
+    "url": "git+https://github.com/mxymalay/doubao-translate2api.git"
   },
   "keywords": ["opencode", "opencode-plugin", "magpie", "doubao", "translation"],
   "license": "MIT",

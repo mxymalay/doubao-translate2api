@@ -2,11 +2,11 @@
 
 单文件 OpenAI Chat Completions 翻译接口，JavaScript 本身不超过 32,000 字节。
 
-本地私有维护仓库：[mxymalay/doubao-translate-local](https://github.com/mxymalay/doubao-translate-local)。本目录保留 Lite 的独立部署文件；私有仓库请使用 Wrangler 或 Cloudflare 已获授权的仓库连接，不使用原作者的公开部署按钮。
+维护仓库：[mxymalay/doubao-translate2api](https://github.com/mxymalay/doubao-translate2api)。本目录保留 Lite 的独立部署文件；请使用 Wrangler 或 Cloudflare 仓库连接，不使用原作者的部署按钮。
 
-## 私有仓库部署
+## 仓库部署
 
-1. 登录 Cloudflare，连接 GitHub 并授权读取私有仓库 `mxymalay/doubao-translate-local`，或使用下方 Wrangler 命令行方式。
+1. 登录 Cloudflare，连接 GitHub 并授权读取仓库 `mxymalay/doubao-translate2api`，或使用下方 Wrangler 命令行方式。
 2. 连接完整仓库时，项目根目录设为 `deploy/workers-lite`；单独复制此目录使用时，根目录为复制后的仓库根目录。构建命令为 `npm run build`，部署命令为 `npm run deploy`，Node.js 使用 24。
 3. 按提示填写两个 Secret：`API_KEY`（至少 16 位，不含空格）和 `DOUBAO_COOKIE`（本人 Cookie Header，含 `sessionid`、`sid_tt`、`uid_tt`）。若页面未收集，部署后在 Worker 设置里按 Secret 类型添加并部署设置。
 4. 在沉浸式翻译中填写 `https://你的Worker地址/v1/chat/completions`、同一个 `API_KEY`、模型 `doubao-ai`，关闭流式输出并使用纯文本模板。

@@ -1,6 +1,6 @@
 # doubao-translate2api
 
-本页保留上游 Docker 镜像的使用资料。`muzileee/doubao-translate2api` 不是本私有维护版发布的镜像，不包含本文维护版的保证；本机实际使用的是 [本地 Magpie 插件](../magpie-plugin/README.md)。维护源码见 [mxymalay/doubao-translate-local](https://github.com/mxymalay/doubao-translate-local)。
+本页保留上游 Docker 镜像的使用资料。`muzileee/doubao-translate2api` 不是本维护版发布的镜像，不包含本文维护版的保证。维护源码见 [mxymalay/doubao-translate2api](https://github.com/mxymalay/doubao-translate2api)。
 
 将豆包网页翻译转换为 OpenAI Chat、OpenAI Responses 和 Anthropic Messages API，供翻译客户端调用。支持多 Cookie 管理、故障切换和按请求轮询。
 
@@ -55,13 +55,13 @@ Cookie 过期后需手动更新。升级时保留并备份 `data/admin`，其中
 
 ## Magpie 直连安装
 
-本机维护版已经安装到以下目录（不是原作者已失效的 GitHub 插件地址）：
+维护版插件从本仓库的 `magpie-plugin` 分支安装（不是原作者已失效的 GitHub 插件地址）：
 
-```text
-/Users/xy/.config/magpie/plugins/local-doubao-translate
+```sh
+magpie plugin add github:mxymalay/doubao-translate2api#magpie-plugin
 ```
 
-详细安装与更新方式见 [插件说明](../magpie-plugin/README.md)。导入本人 Cookie 后，模型选择 `doubao-translate/doubao-ai`。这种方式直接调用豆包，无须部署此镜像。
+详细安装与更新方式见 [插件说明](../magpie-plugin/README.md)。用浏览器登录或导入本人 Cookie 后，模型选择 `doubao-translate/doubao-ai`。这种方式直接调用豆包，无须部署此镜像。
 
 ## 更新
 

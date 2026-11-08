@@ -57,9 +57,9 @@ describe("Magpie direct translation plugin", () => {
 
   it("validates and probes Header/JSON cookies with stable account labels", async () => {
     const { plugin, mock } = await setup();
-    const method = plugin.auth.methods[0]!;
+    const method = plugin.auth.methods[1]!;
     const login = async (inputs: Record<string, string>) => (await method.authorize(inputs)).callback();
-    expect(method.prompts[0]!.validate?.("sessionid=partial")).toBeTruthy();
+    expect(method.prompts![0]!.validate?.("sessionid=partial")).toBeTruthy();
     const flow = await method.authorize({ cookie: cookieA });
     expect(flow).toMatchObject({ url: "", method: "auto" });
     const header = await login({ cookie: `Cookie: ${cookieA}`, name: "Personal" });
@@ -74,7 +74,7 @@ describe("Magpie direct translation plugin", () => {
     });
     expect(header).toMatchObject({ type: "success", key: cookieA });
     expect(json).toEqual(header);
-    expect(header.metadata?.email).toMatch(/^Personal \([a-f0-9]{12}\)$/);
+    expect((header as { metadata?: { email?: string } }).metadata?.email).toMatch(/^Personal \([a-f0-9]{12}\)$/);
     expect(mock.requests).toHaveLength(2);
     expect(mock.requests.every(value => value.path.includes("user_settings"))).toBe(true);
     mock.state.authCode = 710012001;

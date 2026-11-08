@@ -87,7 +87,7 @@ describe('local Magpie hardening', () => {
     vi.stubGlobal('fetch', () => new Promise<Response>(resolve => { complete = resolve; }));
     cleanup.push(finishCancel);
     const plugin = await DoubaoTranslatePlugin({}, { authTimeoutMs: 20 });
-    const flow = await plugin.auth.methods[0]!.authorize({ cookie: fixtureCookie });
+    const flow = await plugin.auth.methods[1]!.authorize({ cookie: fixtureCookie });
     const result = await within(flow.callback());
     expect(result).toMatchObject({ type: 'failed' });
     complete(new Response(new ReadableStream<Uint8Array>({ cancel }), {
@@ -104,7 +104,7 @@ describe('local Magpie hardening', () => {
     }), { headers: { 'Content-Type': 'application/json' } }));
     cleanup.push(() => { try { controller.close(); } catch { /* Already cancelled. */ } });
     const plugin = await DoubaoTranslatePlugin({}, { authTimeoutMs: 20 });
-    const flow = await plugin.auth.methods[0]!.authorize({ cookie: fixtureCookie });
+    const flow = await plugin.auth.methods[1]!.authorize({ cookie: fixtureCookie });
     const result = await within(flow.callback());
     expect(result).not.toBe('still-pending');
     expect(result).toMatchObject({ type: 'failed' });

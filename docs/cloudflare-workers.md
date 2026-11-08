@@ -3,7 +3,7 @@ Workers 让 Cloudflare 运行你的翻译接口，无需购买服务器、安装
 
 ## Lite 单文件版
 
-源码保存在私有仓库 [mxymalay/doubao-translate-local](https://github.com/mxymalay/doubao-translate-local)。请使用下方 Wrangler 命令，或在 Cloudflare 中授权并连接该仓库；不使用原作者的公开部署按钮。
+源码保存在 [mxymalay/doubao-translate2api](https://github.com/mxymalay/doubao-translate2api)。请使用下方 Wrangler 命令，或在 Cloudflare 中连接该仓库；不使用原作者的部署按钮。
 
 通过 Cloudflare 仓库连接部署 Lite 时，项目根目录设为 `deploy/workers-lite`；构建命令为 `npm run build`，部署命令为 `npm run deploy`，Node.js 使用 24。不要填写完整版的构建命令。若页面未收集 Secret，在 Worker 设置里补齐 `API_KEY` 与 `DOUBAO_COOKIE` 并部署设置。完整步骤见 [Lite 目录说明](../deploy/workers-lite/README.md)。
 
@@ -75,9 +75,9 @@ Cookie 是账号登录凭据，不填写到 GitHub 文件，也不填写到沉�
 
 ## 方式一：通过浏览器部署
 
-准备自己的 Cloudflare 和 GitHub 账号。在 Cloudflare Workers 的仓库连接流程中选择已获授权的私有仓库 `mxymalay/doubao-translate-local`。若 Cloudflare 无权读取该仓库，使用下面的命令行路线，不必为了部署把仓库改成公开。
+准备自己的 Cloudflare 和 GitHub 账号。在 Cloudflare Workers 的仓库连接流程中选择仓库 `mxymalay/doubao-translate2api`。也可以使用下面的命令行路线。
 
-1. 登录 Cloudflare，并授权读取上述私有仓库。
+1. 登录 Cloudflare，并授权读取上述仓库。
 2. 为 Worker 选择名称，例如 `my-doubao-translate`。
 3. 查看构建设置：项目根目录为仓库根目录；构建命令使用 `npm run build:workers`；部署命令使用 `npm run deploy:workers`。仓库的 `.node-version` 指定 Node.js 24。不要将根目录改为 `src/workers`，它需要仓库里的共享代码。
 4. 在页面要求的 Secrets 中填写 `API_KEY` 和 `DOUBAO_COOKIE`。如果页面没有收集 Secrets，部署后进入该 Worker 的 Settings/设置 → Variables and Secrets/变量与密钥，按 Secret 类型添加这两个值，并部署设置。
@@ -85,7 +85,7 @@ Cookie 是账号登录凭据，不填写到 GitHub 文件，也不填写到沉�
 
 Secret 未配置完整时，公开健康检查仍能成功，但受保护的接口返回 `configuration_error`。这是服务配置未完成，并不表示翻译可用。
 
-Cloudflare 的页面名称可能变化，以实际控制台为准。私有仓库连接、Secret 提示与首次构建流程仍需要在用户账号验收；本次本机迁移并未执行云端部署。
+Cloudflare 的页面名称可能变化，以实际控制台为准。仓库连接、Secret 提示与首次构建流程仍需要在用户账号验收；本维护版未执行云端部署。
 
 ## 方式二：从当前本地仓库部署
 

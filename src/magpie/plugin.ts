@@ -11,6 +11,7 @@ import { normalizeLanguage } from "../doubao/languages.js";
 import { withAbort } from "../core/delay.js";
 import { adaptRequest } from "../protocols/adapter.js";
 import { formatJSON, formatSSE } from "../protocols/format.js";
+import { captureDoubaoCookie } from "./browser-login.js";
 
 const PROVIDER = "doubao-translate";
 // Requests end in the local fetch hook; this address is never contacted.
@@ -113,6 +114,16 @@ export const DoubaoTranslatePlugin = async (_input: unknown, rawOptions?: unknow
     return cookie;
   }
 
+  function success(cookie: string, name: string | undefined) {
+    const uid = cookie.split(";").map(value => value.trim()).find(value => value.startsWith("uid_tt="))!;
+    const fingerprint = createHash("sha256").update(uid).digest("hex").slice(0, 12);
+    return {
+      type: "success" as const,
+      key: cookie,
+      metadata: { email: `${name?.trim().slice(0, 64) || "Doubao"} (${fingerprint})` },
+    };
+  }
+
   return {
     config: async (cfg: OpenCodeConfig) => {
       cfg.provider ??= {};
@@ -127,6 +138,31 @@ export const DoubaoTranslatePlugin = async (_input: unknown, rawOptions?: unknow
       provider: PROVIDER,
       maxConcurrency: options.maxConcurrency,
       methods: [{
+        type: "oauth" as const,
+        label: "Sign in with browser (auto)",
+        async authorize() {
+          return {
+            url: "",
+            instructions: "A Doubao window will open. Sign in there; it closes by itself once your login is captured.",
+            method: "auto" as const,
+            async callback() {
+              try {
+                let lastError: unknown;
+                const header = await captureDoubaoCookie({
+                  accept: async value => {
+                    try { await inspect(async () => ({ type: "api", key: importCookie(value).cookie })); return true; }
+                    catch (error) { lastError = error; return false; }
+                  },
+                }).catch(error => { throw lastError ?? error; });
+                return success(importCookie(header).cookie, undefined);
+              } catch (error) {
+                return { type: "failed" as const, error: error instanceof ServiceError ? error.message :
+                  error instanceof Error ? error.message : String(error) };
+              }
+            },
+          };
+        },
+      }, {
         // The host's custom login flow can save a key without asking for a second API key.
         type: "oauth" as const,
         label: "Import Doubao Cookie",
@@ -150,13 +186,7 @@ export const DoubaoTranslatePlugin = async (_input: unknown, rawOptions?: unknow
               try {
                 const cookie = importCookie(inputs?.cookie ?? "");
                 await inspect(async () => ({ type: "api", key: cookie.cookie }));
-                const uid = cookie.cookie.split(";").map(value => value.trim()).find(value => value.startsWith("uid_tt="))!;
-                const fingerprint = createHash("sha256").update(uid).digest("hex").slice(0, 12);
-                return {
-                  type: "success" as const,
-                  key: cookie.cookie,
-                  metadata: { email: `${inputs?.name?.trim().slice(0, 64) || "Doubao"} (${fingerprint})` },
-                };
+                return success(cookie.cookie, inputs?.name);
               } catch (error) {
                 return { type: "failed" as const, error: asServiceError(error).message };
               }
