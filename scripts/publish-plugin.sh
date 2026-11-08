@@ -29,7 +29,7 @@ else
   git worktree add --detach "$WORK"
   git -C "$WORK" checkout --orphan "tmp-$BRANCH-$$"
 fi
-git -C "$WORK" rm -rq --ignore-unmatch .
+git -C "$WORK" rm -rqf --ignore-unmatch .
 find "$WORK" -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
 cp -R "$OUT"/. "$WORK"/
 
