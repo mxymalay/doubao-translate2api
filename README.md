@@ -17,7 +17,7 @@ magpie plugin login doubao-translate
 
 `magpie-plugin` 分支只包含构建好的插件包，由源码 `main` 分支的 `npm run publish:plugin` 生成。
 
-推荐在 Magpie「供应商 → 豆包文本翻译（本地加固版）→ Sign in with browser (auto)」登录：插件会用独立的浏览器配置（macOS 上为 `~/Library/Application Support/doubao-translate-local/login-profile`，不碰日常 Chrome 配置）打开豆包网页，你在窗口里自己登录后，插件通过仅监听 127.0.0.1 的调试端口读取 `www.doubao.com` 的 Cookie，校验登录状态通过后自动关闭窗口并保存。等待上限 5 分钟。支持 Chrome、Edge、Brave、Chromium，可用环境变量 `DOUBAO_LOGIN_BROWSER` 指定浏览器路径。该独立配置会保留豆包登录，Cookie 失效后再次点该登录方式通常无需重新输入账号。
+推荐在 Magpie「供应商 → 豆包文本翻译（本地加固版）→ Sign in with browser (auto)」登录：插件会用独立的浏览器配置（macOS 上为 `~/Library/Application Support/doubao-translate-local/login-profile`，不碰日常 Chrome 配置）打开豆包网页，你在窗口里自己登录后，插件通过仅监听 127.0.0.1 的调试端口读取 `www.doubao.com` 的 Cookie，校验登录状态通过后自动关闭窗口并保存。等待上限 5 分钟。支持 Chrome、Edge、Brave、Chromium，可用环境变量 `DOUBAO_LOGIN_BROWSER` 指定浏览器路径。每次登录都会先清空该独立配置里的豆包 Cookie，所以窗口总是未登录状态，可以登录任意账号（包括「添加另一个账号」）；这不会让已保存在 Magpie 里的账号退出。
 
 也可以用「Import Doubao Cookie」手动导入本人 Cookie Header 或 Cookie JSON，必须包含 `sessionid`、`sid_tt`、`uid_tt`，导入时同样会校验登录状态。未登录时 Magpie 不会把这三个翻译模型加入可调用的网关目录。
 

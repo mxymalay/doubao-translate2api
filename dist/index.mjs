@@ -20929,14 +20929,20 @@ async function captureDoubaoCookie(options = {}) {
     "--remote-debugging-address=127.0.0.1",
     "--no-first-run",
     "--no-default-browser-check",
-    "--new-window",
-    LOGIN_URL
+    "about:blank"
   ], { stdio: "ignore", detached: false });
   child.on("error", () => {
   });
   let cdp;
   try {
     cdp = await CDP.connect(await devtoolsEndpoint(dir, child, signal));
+    await cdp.send("Storage.clearCookies");
+    for (const origin of ["https://www.doubao.com", "https://doubao.com"])
+      await cdp.send("Storage.clearDataForOrigin", { origin, storageTypes: "all" }).catch(() => void 0);
+    const { targetInfos } = await cdp.send("Target.getTargets");
+    await cdp.send("Target.createTarget", { url: LOGIN_URL });
+    for (const target of targetInfos.filter((t) => t.type === "page"))
+      await cdp.send("Target.closeTarget", { targetId: target.targetId }).catch(() => void 0);
     let lastRejected = "";
     while (true) {
       signal.throwIfAborted();
