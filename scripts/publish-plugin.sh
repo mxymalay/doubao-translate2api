@@ -20,14 +20,19 @@ npm run build:plugin:local
 OUT="$ROOT/outputs/doubao-translate-local"
 
 WORK="$(mktemp -d)"
-trap 'git worktree remove --force "$WORK" >/dev/null 2>&1 || rm -rf "$WORK"' EXIT
+TMP_BRANCH="tmp-$BRANCH-$$"
+cleanup() {
+  git worktree remove --force "$WORK" >/dev/null 2>&1 || rm -rf "$WORK"
+  git branch -D "$TMP_BRANCH" >/dev/null 2>&1 || true
+}
+trap cleanup EXIT
 
 git fetch "$REMOTE" "$BRANCH" 2>/dev/null || true
 if git rev-parse --verify -q "$REMOTE/$BRANCH" >/dev/null; then
   git worktree add --detach "$WORK" "$REMOTE/$BRANCH"
 else
   git worktree add --detach "$WORK"
-  git -C "$WORK" checkout --orphan "tmp-$BRANCH-$$"
+  git -C "$WORK" checkout --orphan "$TMP_BRANCH"
 fi
 git -C "$WORK" rm -rqf --ignore-unmatch .
 find "$WORK" -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
