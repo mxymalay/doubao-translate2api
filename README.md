@@ -89,9 +89,10 @@ npm run build:plugin:local
 
 ```sh
 npm run publish:plugin
-magpie plugin update
+magpie plugin rm 'github:mxymalay/doubao-translate2api#magpie-plugin'
+magpie plugin add 'github:mxymalay/doubao-translate2api#magpie-plugin'
 ```
 
-`publish:plugin` 运行测试、构建插件，并把结果作为新提交推送到 `magpie-plugin` 分支；`magpie plugin update` 让 Magpie 拉取最新版本。
+`publish:plugin` 运行测试、构建插件，并把结果作为新提交推送到 `magpie-plugin` 分支。Magpie 会锁定已安装的提交，所以要移除后重新添加才能拉到新版本；登录的账号会保留。不要用 `magpie plugin update`，它会同时更新所有插件。
 
 回归测试使用测试账号占位值和模拟上游，不是真实豆包账号验收。真实验收需导入有效 Cookie 后，发送一条明确目标语言的短文及一篇多段长文，检查译文和分隔符；真实未验收时不要宣称账号可用。
