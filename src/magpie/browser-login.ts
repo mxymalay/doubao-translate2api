@@ -5,7 +5,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 
 // Opens Doubao in a dedicated Chromium-family browser window (its own profile, never the
-// user's everyday one), waits for the user to sign in themselves, then reads the
+// user's everyday one), signed out, waits for the user to sign in themselves, then reads the
 // www.doubao.com cookies over the local DevTools port. Nothing bypasses login or captcha.
 
 const LOGIN_URL = "https://www.doubao.com/chat/";
@@ -131,14 +131,23 @@ export async function captureDoubaoCookie(options: BrowserLoginOptions = {}) {
     "--remote-debugging-address=127.0.0.1",
     "--no-first-run",
     "--no-default-browser-check",
-    "--new-window",
-    LOGIN_URL,
+    "about:blank",
   ], { stdio: "ignore", detached: false });
   child.on("error", () => { /* surfaced via exitCode checks */ });
 
   let cdp: CDP | undefined;
   try {
     cdp = await CDP.connect(await devtoolsEndpoint(dir, child, signal));
+    // Always start signed out, so the user picks the account (and "add another account"
+    // doesn't silently re-capture the previous one). Clearing this dedicated profile's
+    // cookies does not sign out sessions already saved in Magpie.
+    await cdp.send("Storage.clearCookies");
+    for (const origin of ["https://www.doubao.com", "https://doubao.com"])
+      await cdp.send("Storage.clearDataForOrigin", { origin, storageTypes: "all" }).catch(() => undefined);
+    const { targetInfos } = await cdp.send("Target.getTargets") as { targetInfos: { targetId: string; type: string }[] };
+    await cdp.send("Target.createTarget", { url: LOGIN_URL });
+    for (const target of targetInfos.filter(t => t.type === "page"))
+      await cdp.send("Target.closeTarget", { targetId: target.targetId }).catch(() => undefined);
     let lastRejected = "";
     while (true) {
       signal.throwIfAborted();
