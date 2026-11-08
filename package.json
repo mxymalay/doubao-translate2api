@@ -1,0 +1,19 @@
+{
+  "name": "opencode-doubao-translate-local",
+  "version": "0.1.1-local.1",
+  "description": "Locally maintained, bounded text translation provider for Magpie",
+  "type": "module",
+  "main": "./dist/index.mjs",
+  "exports": {
+    ".": "./dist/index.mjs",
+    "./server": "./dist/index.mjs"
+  },
+  "files": ["dist/index.mjs", "README.md", "LICENSE", "THIRD_PARTY_LICENSES.txt"],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mxymalay/doubao-translate2api.git"
+  },
+  "keywords": ["opencode", "opencode-plugin", "magpie", "doubao", "translation"],
+  "license": "MIT",
+  "magpie": { "maxConcurrency": 2 }
+}
